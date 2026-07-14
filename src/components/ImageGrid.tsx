@@ -1,48 +1,68 @@
+import { motion } from 'motion/react';
 import type { CollectedImage } from '../types';
-import type { FormatOption } from '../utils/format';
 import { ImageCard } from './ImageCard';
 import { SkeletonGrid } from './SkeletonGrid';
 import { EmptyState } from './EmptyState';
+import { InView } from '@/components/motion-primitives/in-view';
 
 interface ImageGridProps {
-  images: CollectedImage[];
   filtered: CollectedImage[];
   selected: Set<string>;
   loading: boolean;
   disabled: boolean;
-  format: FormatOption;
+  downloadingId: string | null;
+  previewImageId: string | null;
   onToggle: (id: string) => void;
   onDownload: (image: CollectedImage) => void;
-  onPreview: (image: CollectedImage) => void;
+  onPreviewOpenChange?: (imageId: string | null) => void;
 }
 
 export function ImageGrid({
-  images,
   filtered,
   selected,
   loading,
   disabled,
-  format,
+  downloadingId,
+  previewImageId,
   onToggle,
   onDownload,
-  onPreview,
+  onPreviewOpenChange,
 }: ImageGridProps) {
   if (loading) return <SkeletonGrid />;
   if (!filtered.length) return <EmptyState />;
 
   return (
-    <div className="columns-2 gap-3 sm:columns-3" style={{ viewTransitionName: 'card-grid' }}>
-      {filtered.map((image) => (
-        <ImageCard
-          key={image.id}
-          image={image}
-          isSelected={selected.has(image.id)}
-          disabled={disabled}
-          onToggle={onToggle}
-          onDownload={onDownload}
-          onPreview={onPreview}
-        />
-      ))}
+    <div className="columns-[180px] gap-4 [&>*]:break-inside-avoid">
+        {filtered.map((image, index) => (
+          <motion.div
+            key={image.id}
+            data-image-id={image.id}
+            className="mb-4"
+          >
+            <InView
+              once
+              viewOptions={{ margin: '0px 0px -40px 0px' }}
+              transition={{ duration: 0.3, delay: Math.min(index * 0.02, 0.3) }}
+            >
+              <ImageCard
+                image={image}
+                isSelected={selected.has(image.id)}
+                disabled={disabled}
+                downloadingId={downloadingId}
+                previewOpen={previewImageId === image.id}
+                onToggle={onToggle}
+                onDownload={onDownload}
+                onPreviewOpenChange={(open) => {
+                  if (open) {
+                    onPreviewOpenChange?.(image.id);
+                  } else if (previewImageId === image.id) {
+                    onPreviewOpenChange?.(null);
+                  }
+                }}
+              />
+            </InView>
+          </motion.div>
+        ))}
     </div>
   );
 }

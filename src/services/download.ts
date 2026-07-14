@@ -4,6 +4,7 @@ export async function triggerBlobDownload(
   blob: Blob,
   filename: string,
   saveAs: boolean,
+  onProgress?: (received: number, total: number) => void,
 ): Promise<void> {
   const objectUrl = createObjectUrl(blob);
 
@@ -12,6 +13,9 @@ export async function triggerBlobDownload(
 
     const onChanged = (delta: chrome.downloads.DownloadDelta) => {
       if (delta.id !== downloadId) return;
+      if (onProgress && delta.totalBytes?.current != null) {
+        onProgress(delta.totalBytes.current, delta.totalBytes.current);
+      }
       if (delta.state?.current === 'complete' || delta.state?.current === 'interrupted') {
         chrome.downloads.onChanged.removeListener(onChanged);
         revokeObjectUrl(objectUrl);

@@ -1,4 +1,4 @@
-export type ImageSource = 'img' | 'srcset' | 'css' | 'svg' | 'meta';
+export type ImageSource = 'img' | 'srcset' | 'css' | 'svg' | 'meta' | 'canvas';
 
 export interface CollectedImage {
   id: string;
@@ -58,3 +58,21 @@ export interface MetadataFile {
 
 export type SortMode = 'document' | 'largest' | 'smallest' | 'name';
 export type ThemeMode = 'light' | 'dark';
+
+export interface AdvancedOptions {
+  includeCssBackgrounds: boolean;
+  includeSvg: boolean;
+  includeCanvas: boolean;
+  strictDedup: boolean;
+  minDimension: number;
+  minPixelCount: number;
+}
+
+export const DEFAULT_ADVANCED_OPTIONS: AdvancedOptions = {
+  includeCssBackgrounds: true,
+  includeSvg: true,
+  includeCanvas: true,
+  strictDedup: false,
+  minDimension: 32,
+  minPixelCount: 256,
+};

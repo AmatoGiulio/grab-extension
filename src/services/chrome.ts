@@ -12,6 +12,17 @@ export function executeInTab<T>(
   return chrome.scripting.executeScript({ target: { tabId, allFrames: true }, func }) as any;
 }
 
+export function executeInTabIsolated<T>(
+  tabId: number,
+  func: () => T,
+): Promise<chrome.scripting.InjectionResult<Awaited<T>>[]> {
+  return chrome.scripting.executeScript({
+    target: { tabId },
+    func,
+    world: 'ISOLATED',
+  }) as any;
+}
+
 export function executeInTabWithArgs<T, Args extends unknown[]>(
   tabId: number,
   args: Args,

@@ -1,8 +1,11 @@
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
 import type { SortMode } from '../types';
 
 interface ToolbarProps {
   allVisibleSelected: boolean;
   hasItems: boolean;
+  hasSelection: boolean;
   disabled: boolean;
   minWidth: number;
   sort: SortMode;
@@ -14,6 +17,7 @@ interface ToolbarProps {
 export function Toolbar({
   allVisibleSelected,
   hasItems,
+  hasSelection,
   disabled,
   minWidth,
   sort,
@@ -22,65 +26,50 @@ export function Toolbar({
   onSortChange,
 }: ToolbarProps) {
   return (
-    <div className="flex items-center justify-between gap-2">
-      <button
-        className={
-          'flex items-center gap-1.5 border-0 bg-none text-xs transition-colors ' +
-          (allVisibleSelected ? 'text-text' : 'text-text-2') +
-          (hasItems && !disabled ? ' cursor-pointer hover:text-text' : ' opacity-40')
-        }
-        onClick={onToggleAll}
+    <div className="flex items-center justify-between py-1">
+      <Switch
+        label={allVisibleSelected ? 'Deselect all' : hasSelection ? 'Select all' : 'Select all'}
+        checked={allVisibleSelected}
+        onToggle={onToggleAll}
         disabled={!hasItems || disabled}
-      >
-        <span
-          className={
-            'grid h-4 w-4 place-items-center rounded-md border transition-all duration-150 ' +
-            (allVisibleSelected
-              ? 'border-accent bg-accent text-accent-text'
-              : 'border-border-strong bg-panel')
-          }
-        >
-          <svg
-            width="11"
-            height="11"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-            className={'transition-all duration-150 ' + (allVisibleSelected ? 'scale-100 opacity-100' : 'scale-50 opacity-0')}
-          >
-            <polyline points="5 12 9 16 19 6" />
-          </svg>
-        </span>
-        {allVisibleSelected ? 'Deselect all' : 'Select all'}
-      </button>
+      />
 
-      <div className="flex gap-1.5">
-        <select
-          value={minWidth}
-          onChange={(e) => onMinWidthChange(Number(e.target.value))}
+      <div className="flex items-center gap-1">
+        <Select
+          value={String(minWidth)}
+          onValueChange={(v) => onMinWidthChange(Number(v))}
           disabled={disabled}
-          className="h-7 max-w-[116px] cursor-pointer rounded-lg border border-border bg-panel-2 px-2 text-[10px] text-text-2 outline-none transition-colors hover:border-border-strong disabled:cursor-default"
         >
-          <option value="0">Any size</option>
-          <option value="256">≥ 256 px</option>
-          <option value="512">≥ 512 px</option>
-          <option value="1024">≥ 1024 px</option>
-        </select>
-        <select
+          <SelectTrigger
+            variant="borderless"
+            placeholder="Size"
+            className="min-w-3"
+          />
+          <SelectContent>
+            <SelectItem index={0} value="0">Size</SelectItem>
+            <SelectItem index={1} value="256">≥ 256 px</SelectItem>
+            <SelectItem index={2} value="512">≥ 512 px</SelectItem>
+            <SelectItem index={3} value="1024">≥ 1024 px</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
           value={sort}
-          onChange={(e) => onSortChange(e.target.value as SortMode)}
+          onValueChange={(v) => onSortChange(v as SortMode)}
           disabled={disabled}
-          className="h-7 max-w-[116px] cursor-pointer rounded-lg border border-border bg-panel-2 px-2 text-[10px] text-text-2 outline-none transition-colors hover:border-border-strong disabled:cursor-default"
         >
-          <option value="document">Page order</option>
-          <option value="largest">Largest</option>
-          <option value="smallest">Smallest</option>
-          <option value="name">Name</option>
-        </select>
+          <SelectTrigger
+            variant="borderless"
+            placeholder="Order"
+            className="min-w-3"
+          />
+          <SelectContent>
+            <SelectItem index={0} value="document">Order</SelectItem>
+            <SelectItem index={1} value="largest">Largest</SelectItem>
+            <SelectItem index={2} value="smallest">Smallest</SelectItem>
+            <SelectItem index={3} value="name">Name</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );

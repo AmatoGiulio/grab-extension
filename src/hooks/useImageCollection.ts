@@ -2,7 +2,8 @@ import { useCallback, useRef, useState } from 'react';
 import { getActiveTab, executeInTab } from '../services/chrome';
 import { collectImagesInPage, installRealtimeImageWatcher } from '../collector';
 import { mapWithConcurrency } from '../utils/concurrency';
-import type { CollectedImage } from '../types';
+import type { CollectedImage, AdvancedOptions } from '../types';
+import { DEFAULT_ADVANCED_OPTIONS } from '../types';
 
 async function isReachable(url: string, pageUrl: string, signal?: AbortSignal): Promise<boolean> {
   if (url.startsWith('data:') || url.startsWith('blob:')) return true;
@@ -25,6 +26,45 @@ async function isReachable(url: string, pageUrl: string, signal?: AbortSignal): 
   } finally {
     clearTimeout(timer);
   }
+}
+
+function applyQualityFilter(
+  images: CollectedImage[],
+  opts: AdvancedOptions,
+): CollectedImage[] {
+  let filtered = images;
+
+  if (!opts.includeCssBackgrounds) {
+    filtered = filtered.filter((img) => img.source !== 'css');
+  }
+  if (!opts.includeSvg) {
+    filtered = filtered.filter((img) => img.source !== 'svg');
+  }
+  if (!opts.includeCanvas) {
+    filtered = filtered.filter((img) => img.source !== 'canvas');
+  }
+
+  filtered = filtered.filter((img) => {
+    const w = img.width || img.displayedWidth;
+    const h = img.height || img.displayedHeight;
+    if (w < opts.minDimension && h < opts.minDimension) return false;
+    if (w * h < opts.minPixelCount) return false;
+    return true;
+  });
+
+  if (opts.strictDedup && filtered.length > 0) {
+    const deduped = new Map<string, CollectedImage>();
+    for (const img of filtered) {
+      const key = img.url.replace(/^https:/i, 'http:').toLowerCase();
+      const prev = deduped.get(key);
+      if (!prev || img.pixelCount > prev.pixelCount) {
+        deduped.set(key, img);
+      }
+    }
+    filtered = [...deduped.values()];
+  }
+
+  return filtered;
 }
 
 export function useImageCollection() {
@@ -54,6 +94,7 @@ export function useImageCollection() {
       silent?: boolean;
       onTabChange?: () => void;
       onImagesUpdate?: (validIds: Set<string>) => void;
+      advancedOptions?: AdvancedOptions;
     } = {}) => {
       abortRef.current?.abort();
       const abort = new AbortController();
@@ -84,6 +125,8 @@ export function useImageCollection() {
         setPageUrl(currentPageUrl);
         setPageTitle(tab.title || parsed.hostname);
 
+        const opts = options.advancedOptions ?? DEFAULT_ADVANCED_OPTIONS;
+
         const results = await executeInTab(tab.id, collectImagesInPage);
         if (version !== scanVersion.current) return;
 
@@ -98,6 +141,7 @@ export function useImageCollection() {
           });
 
         let candidates = [...merged.values()];
+        candidates = applyQualityFilter(candidates, opts);
 
         if (!candidates.length) {
           if (version !== scanVersion.current) return;

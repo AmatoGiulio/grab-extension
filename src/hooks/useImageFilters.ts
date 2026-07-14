@@ -1,19 +1,11 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState } from 'react';
 import type { CollectedImage, SortMode } from '../types';
 import type { FormatOption } from '../utils/format';
 
-function vt(fn: () => void) {
-  document.startViewTransition ? document.startViewTransition(fn) : fn();
-}
-
 export function useImageFilters(images: CollectedImage[]) {
-  const [format, setFormat_] = useState<FormatOption>('all');
-  const [sort, setSort_] = useState<SortMode>('document');
-  const [minWidth, setMinWidth_] = useState(0);
-
-  const setFormat = useCallback((f: FormatOption) => vt(() => setFormat_(f)), []);
-  const setSort = useCallback((s: SortMode) => vt(() => setSort_(s)), []);
-  const setMinWidth = useCallback((w: number) => vt(() => setMinWidth_(w)), []);
+  const [format, setFormat] = useState<FormatOption>('all');
+  const [sort, setSort] = useState<SortMode>('document');
+  const [minWidth, setMinWidth] = useState(0);
 
   const filtered = useMemo(() => {
     const result = images.filter((image) => {

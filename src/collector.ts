@@ -1,6 +1,40 @@
 import type { CollectedImage, ImageSource } from './types';
 
-export function collectImagesInPage(): CollectedImage[] {
+export function collectImagesInPage(options?: {
+  includeCssBackgrounds?: boolean;
+  includeSvg?: boolean;
+  includeCanvas?: boolean;
+  strictDedup?: boolean;
+}): CollectedImage[] {
+  const MIN_DIMENSION = 32;
+  const MIN_PIXEL_COUNT = 256;
+  const { includeCssBackgrounds = true, includeSvg = true, includeCanvas = true, strictDedup = false } = options ?? {};
+
+  const queryAllWithShadow = (root: Document | ShadowRoot | Element, cb: (el: Element) => void): void => {
+    function walk(node: Node) {
+      if (node instanceof Element) {
+        cb(node);
+        if (node.shadowRoot) walk(node.shadowRoot);
+      }
+      for (const child of node.childNodes) {
+        if (child instanceof Element) {
+          walk(child);
+        }
+      }
+    }
+    walk(root);
+  };
+
+  const walkShadowRoots = (root: Document | ShadowRoot | Element, cb: (el: Element) => void): void => {
+    if (root instanceof Element) {
+      cb(root);
+      if (root.shadowRoot) walkShadowRoots(root.shadowRoot, cb);
+    }
+    for (const child of (root as Document | Element).children) {
+      if (child instanceof Element) walkShadowRoots(child, cb);
+    }
+  };
+
   type Raw = Omit<CollectedImage, 'id'>;
   const found = new Map<string, Raw>();
 
@@ -19,9 +53,23 @@ export function collectImagesInPage(): CollectedImage[] {
   const dedupKey = (url: string): string => {
     try {
       const parsed = new URL(url);
-      return parsed.origin + parsed.pathname;
+      let key = parsed.origin + parsed.pathname;
+      if (strictDedup) {
+        key = key.replace(/^https:/, 'http:').toLowerCase();
+      }
+      return key;
     } catch {
       return url;
+    }
+  };
+
+  const hasTrackingParams = (url: string): boolean => {
+    try {
+      const search = new URL(url).searchParams;
+      const trackers = ['utm_', 'fbclid', 'gclid', 'ref', 'spm'];
+      return trackers.some((t) => [...search.keys()].some((k) => k.startsWith(t)));
+    } catch {
+      return false;
     }
   };
 
@@ -45,12 +93,33 @@ export function collectImagesInPage(): CollectedImage[] {
       : extension === 'svg' ? 'image/svg+xml' : 'application/octet-stream';
   };
 
-  const filenameFromUrl = (url: string, index: number): string => {
+  const cleanFilename = (name: string): string => {
+    return name
+      .replace(/[\\/:*?"<>|]/g, '-')
+      .replace(/[#?].*$/, '')
+      .replace(/[-_]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .trim();
+  };
+
+  const smartFilename = (alt: string, title: string, url: string, index: number): string => {
+    const label = alt || title;
+    if (label && label.length > 2 && /[a-zA-Z]/.test(label)) {
+      const cleaned = cleanFilename(label);
+      if (cleaned) return `${cleaned}.${extensionFromUrl(url)}`;
+    }
+
     if (url.startsWith('data:') || url.startsWith('blob:')) return `image-${index + 1}.${extensionFromUrl(url)}`;
     try {
       const path = decodeURIComponent(new URL(url).pathname);
-      const last = path.split('/').filter(Boolean).pop();
-      if (last && last.includes('.')) return last.replace(/[\\/:*?"<>|]/g, '-');
+      let last = path.split('/').filter(Boolean).pop() || '';
+      if (last.includes('.')) {
+        last = last
+          .replace(/[-_]\d+x\d+[-_]/g, '-')
+          .replace(/[-_]\d+x\d+$/, '')
+          .replace(/[.#][a-f0-9]{8,32}\./i, '.');
+        if (last !== '.' && !last.startsWith('-')) return last;
+      }
     } catch { /* ignored */ }
     return `image-${index + 1}.${extensionFromUrl(url)}`;
   };
@@ -84,13 +153,24 @@ export function collectImagesInPage(): CollectedImage[] {
     const url = normalize(rawUrl);
     if (!url || (!url.startsWith('http') && !url.startsWith('data:image/') && !url.startsWith('blob:'))) return;
 
+    const width = Math.max(dimensions.width ?? 0, 0);
+    const height = Math.max(dimensions.height ?? 0, 0);
+    const displayedWidth = Math.max(dimensions.displayedWidth ?? 0, Math.round(element?.getBoundingClientRect().width ?? 0));
+    const displayedHeight = Math.max(dimensions.displayedHeight ?? 0, Math.round(element?.getBoundingClientRect().height ?? 0));
+
+    const effectiveWidth = width || displayedWidth;
+    const effectiveHeight = height || displayedHeight;
+
+    if (effectiveWidth < MIN_DIMENSION && effectiveHeight < MIN_DIMENSION) return;
+    if (effectiveWidth * effectiveHeight < MIN_PIXEL_COUNT) return;
+
     const key = dedupKey(url);
     const previous = found.get(key);
     const index = found.size;
-    const width = Math.max(previous?.width ?? 0, dimensions.width ?? 0);
-    const height = Math.max(previous?.height ?? 0, dimensions.height ?? 0);
-    const displayedWidth = Math.max(previous?.displayedWidth ?? 0, dimensions.displayedWidth ?? 0);
-    const displayedHeight = Math.max(previous?.displayedHeight ?? 0, dimensions.displayedHeight ?? 0);
+    const finalWidth = Math.max(previous?.width ?? 0, width);
+    const finalHeight = Math.max(previous?.height ?? 0, height);
+    const finalDisplayedWidth = Math.max(previous?.displayedWidth ?? 0, displayedWidth);
+    const finalDisplayedHeight = Math.max(previous?.displayedHeight ?? 0, displayedHeight);
     const extension = previous?.extension ?? extensionFromUrl(url);
     const rect = element?.getBoundingClientRect();
     const visible = Boolean(rect && rect.width > 0 && rect.height > 0 && getComputedStyle(element as Element).visibility !== 'hidden');
@@ -107,20 +187,20 @@ export function collectImagesInPage(): CollectedImage[] {
     const ariaDescription = element?.getAttribute('aria-description') || element?.getAttribute('aria-label') || '';
     const computedDescription = dimensions.description || ariaDescription || dimensions.alt || dimensions.title || '';
 
-    const pixelCount = width * height;
+    const pixelCount = finalWidth * finalHeight;
     const keepNew = !previous || pixelCount > previous.pixelCount;
 
     found.set(key, {
       url: keepNew ? url : previous.url,
-      width,
-      height,
-      displayedWidth,
-      displayedHeight,
+      width: finalWidth,
+      height: finalHeight,
+      displayedWidth: finalDisplayedWidth,
+      displayedHeight: finalDisplayedHeight,
       alt: dimensions.alt || previous?.alt || element?.getAttribute('alt') || '',
       title: dimensions.title || previous?.title || element?.getAttribute('title') || '',
       description: computedDescription || previous?.description || '',
       source: previous?.source ?? source,
-      filename: previous?.filename ?? filenameFromUrl(url, index),
+      filename: previous?.filename ?? smartFilename(dimensions.alt || '', dimensions.title || '', url, index),
       extension,
       mimeType: previous?.mimeType ?? mimeFromExtension(extension),
       elementTag: previous?.elementTag || element?.tagName.toLowerCase() || source,
@@ -136,70 +216,145 @@ export function collectImagesInPage(): CollectedImage[] {
       pageTitle: document.title,
       origin,
       pathname,
-      aspectRatio: width > 0 && height > 0 ? Number((width / height).toFixed(4)) : null,
+      aspectRatio: finalWidth > 0 && finalHeight > 0 ? Number((finalWidth / finalHeight).toFixed(4)) : null,
       pixelCount,
     });
   };
 
-  document.querySelectorAll('img').forEach((image) => {
-    const rect = image.getBoundingClientRect();
-    const dims = {
-      width: image.naturalWidth,
-      height: image.naturalHeight,
-      displayedWidth: Math.round(rect.width),
-      displayedHeight: Math.round(rect.height),
-      alt: image.alt,
-      title: image.title,
-      description: image.getAttribute('aria-description') || image.getAttribute('aria-label') || image.alt,
-      srcset: image.srcset,
-    };
-    add(image.currentSrc || image.src, 'img', image, dims);
-    image.srcset.split(',').forEach((candidate) => add(candidate.trim().split(/\s+/)[0], 'srcset', image, dims));
-    ['data-src', 'data-original', 'data-lazy-src', 'data-url', 'data-image'].forEach((attribute) => add(image.getAttribute(attribute), 'img', image, dims));
-  });
-
-  document.querySelectorAll('source[srcset]').forEach((source) => {
-    source.getAttribute('srcset')?.split(',').forEach((candidate) => add(candidate.trim().split(/\s+/)[0], 'srcset', source));
-  });
-
-  document.querySelectorAll<HTMLElement>('*').forEach((element) => {
-    const background = getComputedStyle(element).backgroundImage;
-    if (!background || background === 'none') return;
-    const rect = element.getBoundingClientRect();
-    for (const match of background.matchAll(/url\((['"]?)(.*?)\1\)/g)) {
-      add(match[2], 'css', element, {
+  queryAllWithShadow(document, (el) => {
+    if (el.tagName === 'IMG') {
+      const image = el as HTMLImageElement;
+      if (image.naturalWidth === 0 && image.naturalHeight === 0) return;
+      const rect = image.getBoundingClientRect();
+      const dims = {
+        width: image.naturalWidth,
+        height: image.naturalHeight,
         displayedWidth: Math.round(rect.width),
         displayedHeight: Math.round(rect.height),
-        title: element.title,
-        description: element.getAttribute('aria-description') || element.getAttribute('aria-label') || '',
-      });
+        alt: image.alt,
+        title: image.title,
+        description: image.getAttribute('aria-description') || image.getAttribute('aria-label') || image.alt,
+        srcset: image.srcset,
+      };
+      const src = image.currentSrc || image.src;
+      if (strictDedup && hasTrackingParams(src) && !found.has(dedupKey(src))) return;
+      add(src, 'img', image, dims);
+      image.srcset.split(',').forEach((candidate) => add(candidate.trim().split(/\s+/)[0], 'srcset', image, dims));
+      ['data-src', 'data-original', 'data-lazy-src', 'data-url', 'data-image'].forEach((attribute) => add(image.getAttribute(attribute), 'img', image, dims));
     }
   });
 
-  document.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"], link[rel="image_src"]').forEach((element) => {
-    add(element.getAttribute('content') || element.getAttribute('href'), 'meta', element, {
-      description: element.getAttribute('property') || element.getAttribute('name') || element.getAttribute('rel') || '',
-    });
+  queryAllWithShadow(document, (el) => {
+    if (el.tagName === 'SOURCE' && el.getAttribute('srcset')) {
+      el.getAttribute('srcset')?.split(',').forEach((candidate) => add(candidate.trim().split(/\s+/)[0], 'srcset', el));
+    }
   });
 
-  document.querySelectorAll('svg').forEach((svg, svgIndex) => {
+  if (includeCssBackgrounds) {
+    const cssSeen = new Set<string>();
+    walkShadowRoots(document, (el) => {
+      if (!(el instanceof HTMLElement)) return;
+      const style = getComputedStyle(el);
+      const background = style.backgroundImage;
+      if (!background || background === 'none' || !background.includes('url(')) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < MIN_DIMENSION && rect.height < MIN_DIMENSION) return;
+      for (const match of background.matchAll(/url\((['"]?)(.*?)\1\)/g)) {
+        const url = match[2];
+        if (!cssSeen.has(url)) {
+          cssSeen.add(url);
+          add(url, 'css', el, {
+            displayedWidth: Math.round(rect.width),
+            displayedHeight: Math.round(rect.height),
+            title: el.title,
+            description: el.getAttribute('aria-description') || el.getAttribute('aria-label') || '',
+          });
+        }
+      }
+    });
+
     try {
-      const clone = svg.cloneNode(true) as SVGElement;
-      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-      const serialized = new XMLSerializer().serializeToString(clone);
-      const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serialized)}`;
-      const rect = svg.getBoundingClientRect();
-      add(url, 'svg', svg, {
-        width: Math.round(rect.width),
-        height: Math.round(rect.height),
-        displayedWidth: Math.round(rect.width),
-        displayedHeight: Math.round(rect.height),
-        alt: svg.getAttribute('aria-label') || `SVG ${svgIndex + 1}`,
-        title: svg.getAttribute('title') || '',
-        description: svg.getAttribute('aria-description') || svg.getAttribute('aria-label') || `SVG inline ${svgIndex + 1}`,
-      });
-    } catch { /* ignored */ }
+      const stylesheetUrls = new Set<string>();
+      for (const sheet of document.styleSheets) {
+        try {
+          for (const rule of sheet.cssRules) {
+            const cssText = rule.cssText;
+            for (const match of cssText.matchAll(/url\((['"]?)(.*?)\1\)/g)) {
+              const raw = match[2].trim();
+              if (raw.endsWith('.svg') || raw.endsWith('.png') || raw.endsWith('.jpg') || raw.endsWith('.jpeg') || raw.endsWith('.webp') || raw.endsWith('.gif') || raw.endsWith('.avif') || raw.endsWith('.bmp')) {
+                if (!cssSeen.has(raw)) {
+                  stylesheetUrls.add(raw);
+                }
+              }
+            }
+          }
+        } catch { /* cross-origin stylesheet */ }
+      }
+      for (const raw of stylesheetUrls) {
+        add(raw, 'css', null);
+      }
+    } catch { /* stylesheet iteration not supported */ }
+  }
+
+  queryAllWithShadow(document, (el) => {
+    if (el.tagName === 'META' || el.tagName === 'LINK') {
+      const prop = el.getAttribute('property') || '';
+      const name = el.getAttribute('name') || '';
+      const rel = el.getAttribute('rel') || '';
+      if (prop === 'og:image' || name === 'twitter:image' || rel === 'image_src') {
+        add(el.getAttribute('content') || el.getAttribute('href'), 'meta', el, {
+          description: prop || name || rel || '',
+        });
+      }
+    }
   });
+
+  if (includeSvg) {
+    let svgIndex = 0;
+    queryAllWithShadow(document, (el) => {
+      if (el.tagName !== 'SVG') return;
+      const svg = el as SVGElement;
+      try {
+        const rect = svg.getBoundingClientRect();
+        if (rect.width < MIN_DIMENSION && rect.height < MIN_DIMENSION) return;
+        const clone = svg.cloneNode(true) as SVGElement;
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        const serialized = new XMLSerializer().serializeToString(clone);
+        const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serialized)}`;
+        svgIndex++;
+        add(url, 'svg', svg, {
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          displayedWidth: Math.round(rect.width),
+          displayedHeight: Math.round(rect.height),
+          alt: svg.getAttribute('aria-label') || `SVG ${svgIndex}`,
+          title: svg.getAttribute('title') || '',
+          description: svg.getAttribute('aria-description') || svg.getAttribute('aria-label') || `SVG inline ${svgIndex}`,
+        });
+      } catch { /* ignored */ }
+    });
+  }
+
+  if (includeCanvas) {
+    queryAllWithShadow(document, (el) => {
+      if (el.tagName !== 'CANVAS') return;
+      const canvas = el as HTMLCanvasElement;
+      try {
+        const dataUrl = canvas.toDataURL('image/png');
+        if (!dataUrl || dataUrl === 'data:,') return;
+        const rect = canvas.getBoundingClientRect();
+        add(dataUrl, 'canvas', canvas, {
+          width: canvas.width || Math.round(rect.width),
+          height: canvas.height || Math.round(rect.height),
+          displayedWidth: Math.round(rect.width),
+          displayedHeight: Math.round(rect.height),
+          alt: canvas.getAttribute('aria-label') || canvas.getAttribute('alt') || '',
+          title: canvas.getAttribute('title') || '',
+          description: canvas.getAttribute('aria-description') || canvas.getAttribute('aria-label') || '',
+        });
+      } catch { /* tainted canvas — skip */ }
+    });
+  }
 
   return [...found.values()].map((item) => ({ ...item, id: item.url }));
 }

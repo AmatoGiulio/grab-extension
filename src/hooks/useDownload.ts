@@ -11,13 +11,16 @@ export function useDownload(
   domain: string,
   setStatus: (status: string) => void,
   fetchBlob: (image: CollectedImage) => Promise<Blob>,
+  onDone?: () => void,
 ) {
   const [downloading, setDownloading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const downloadSingle = useCallback(
     async (image: CollectedImage) => {
       if (downloading) return;
       setDownloading(true);
+      setDownloadingId(image.id);
       setStatus(`Download di ${image.filename}…`);
       try {
         if (/^https?:/.test(image.url)) {
@@ -43,9 +46,11 @@ export function useDownload(
         }
       } finally {
         setDownloading(false);
+        setDownloadingId(null);
+        onDone?.();
       }
     },
-    [fetchBlob, setStatus, downloading],
+    [fetchBlob, setStatus, downloading, onDone],
   );
 
   const downloadZip = useCallback(async () => {
@@ -61,11 +66,15 @@ export function useDownload(
           setStatus(`Recuperate ${completed} di ${total} immagini…`);
         },
       );
-      await triggerBlobDownload(blob, `images-${domain || 'page'}.zip`, true);
+      const filename = `images-${domain || 'page'}.zip`;
+      await triggerBlobDownload(blob, filename, true, (received, total) => {
+        const pct = Math.round((received / total) * 100);
+        setStatus(`Download in corso: ${pct}%`);
+      });
       setStatus(
         summary.failed
-          ? `ZIP creato · ${summary.failed} non accessibili · metadata.json incluso`
-          : 'ZIP creato · metadata.json incluso',
+          ? `ZIP creato · ${summary.failed} non accessibili`
+          : 'ZIP creato',
       );
     } catch (error) {
       setStatus(
@@ -75,8 +84,9 @@ export function useDownload(
       );
     } finally {
       setDownloading(false);
+      onDone?.();
     }
-  }, [selectedImages, fetchBlob, pageUrl, pageTitle, domain, setStatus, downloading]);
+  }, [selectedImages, fetchBlob, pageUrl, pageTitle, domain, setStatus, downloading, onDone]);
 
-  return { downloading, downloadSingle, downloadZip };
+  return { downloading, downloadingId, downloadSingle, downloadZip };
 }
