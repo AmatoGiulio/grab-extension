@@ -1,35 +1,33 @@
-# Grab 1.2.0
+# Grab — Image Collector
 
-Estensione Chrome Manifest V3 in React e TypeScript.
+Chrome MV3 extension side panel. Scans any web page, collects all images, lets you filter, select, and download them individually or as ZIP.
 
-## Ottimizzazioni download
-
-- Download singolo HTTP/HTTPS diretto con `chrome.downloads`, senza ricostruire il file in memoria.
-- Fallback Blob per URL `blob:`, `data:` o download diretti non riusciti.
-- Cache in memoria dei Blob per evitare di recuperare due volte la stessa immagine durante la sessione.
-- Recupero ZIP concorrente con pool limitato a 6 immagini.
-- Immagini archiviate con ZIP `STORE`: JPG, PNG, WebP, GIF e AVIF non vengono ricompressi inutilmente.
-- Solo `metadata.json` usa DEFLATE.
-- `streamFiles: true` durante la generazione dello ZIP.
-
-## Avvio locale
+## Build
 
 ```bash
 npm install
-npm run dev:extension
+npm run build      # production → dist/
 ```
 
-Carica la cartella `dist` da `chrome://extensions` usando **Carica estensione non pacchettizzata**.
-Dopo una modifica, premi **Ricarica** sulla scheda dell'estensione.
+Carica `dist/` da `chrome://extensions` usando **Carica estensione non impacchettata**.
 
-## Build di produzione
+## Sviluppo
 
 ```bash
-npm run build
+npm run dev:extension   # build rapida
 ```
+
+Ricarica l'estensione da `chrome://extensions` dopo ogni modifica.
+
+## Bundle
+
+| Asset | Dimensione |
+|-------|-----------|
+| JS | ~312 KB |
+| CSS | ~25 KB |
+| ZIP (release) | ~109 KB |
 
 ## Debug
 
-- Side panel: click destro nel pannello, poi **Ispeziona**.
-- Service worker: `chrome://extensions` → Image Collector → **Service worker / Ispeziona**.
-- Script eseguiti nella pagina: DevTools del sito → **Sources**.
+- **Side panel**: click destro nel pannello → **Ispeziona**
+- **Service worker**: `chrome://extensions` → Grab → **Service worker**
