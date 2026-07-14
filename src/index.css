@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0a0b;
+  --color-panel: #111113;
+  --color-panel-2: #151517;
+  --color-panel-3: #1a1a1d;
+  --color-text: #f4f4f5;
+  --color-text-2: #aaaab2;
+  --color-text-3: #72727a;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
+  --color-accent: #f1f1f2;
+  --color-accent-text: #0a0a0b;
+  --color-overlay: rgba(0, 0, 0, 0.76);
+  --color-danger: #f87171;
+  --color-success: #4ade80;
+  --animate-fade-in: fade-in 0.2s ease-out both;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.light {
+  --color-bg: #f4f4f2;
+  --color-panel: #ffffff;
+  --color-panel-2: #f8f8f6;
+  --color-panel-3: #eeeeeb;
+  --color-text: #111113;
+  --color-text-2: #5f6067;
+  --color-text-3: #8d8e94;
+  --color-border: rgba(14, 14, 18, 0.09);
+  --color-border-strong: rgba(14, 14, 18, 0.18);
+  --color-accent: #111113;
+  --color-accent-text: #ffffff;
+  --color-overlay: rgba(236, 236, 232, 0.82);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 330px;
+  min-height: 100%;
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: "Geist", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  color-scheme: dark;
+}
+
+::view-transition-old(card-grid) {
+  animation: 150ms ease-out both fade-out, 150ms ease-out both slide-down;
+}
+
+::view-transition-new(card-grid) {
+  animation: 210ms ease-in 150ms both fade-in, 400ms ease-out both slide-up;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(10px); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slide-down {
+  from { transform: translateY(0); }
+  to { transform: translateY(10px); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes fade-out {
+  to { opacity: 0; }
+}
