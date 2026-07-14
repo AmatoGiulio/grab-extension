@@ -16,6 +16,15 @@ export function collectImagesInPage(): CollectedImage[] {
     }
   };
 
+  const dedupKey = (url: string): string => {
+    try {
+      const parsed = new URL(url);
+      return parsed.origin + parsed.pathname;
+    } catch {
+      return url;
+    }
+  };
+
   const extensionFromUrl = (url: string): string => {
     if (url.startsWith('data:image/')) {
       const end = url.indexOf(';');
@@ -75,7 +84,8 @@ export function collectImagesInPage(): CollectedImage[] {
     const url = normalize(rawUrl);
     if (!url || (!url.startsWith('http') && !url.startsWith('data:image/') && !url.startsWith('blob:'))) return;
 
-    const previous = found.get(url);
+    const key = dedupKey(url);
+    const previous = found.get(key);
     const index = found.size;
     const width = Math.max(previous?.width ?? 0, dimensions.width ?? 0);
     const height = Math.max(previous?.height ?? 0, dimensions.height ?? 0);
@@ -97,8 +107,11 @@ export function collectImagesInPage(): CollectedImage[] {
     const ariaDescription = element?.getAttribute('aria-description') || element?.getAttribute('aria-label') || '';
     const computedDescription = dimensions.description || ariaDescription || dimensions.alt || dimensions.title || '';
 
-    found.set(url, {
-      url,
+    const pixelCount = width * height;
+    const keepNew = !previous || pixelCount > previous.pixelCount;
+
+    found.set(key, {
+      url: keepNew ? url : previous.url,
       width,
       height,
       displayedWidth,
@@ -124,7 +137,7 @@ export function collectImagesInPage(): CollectedImage[] {
       origin,
       pathname,
       aspectRatio: width > 0 && height > 0 ? Number((width / height).toFixed(4)) : null,
-      pixelCount: width * height,
+      pixelCount,
     });
   };
 
