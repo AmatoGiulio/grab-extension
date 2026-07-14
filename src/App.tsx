@@ -87,6 +87,8 @@ function App() {
           />
         </main>
 
+        <div className="pointer-events-none fixed bottom-[68px] left-0 right-0 z-20 h-16 bg-gradient-to-t from-bg to-transparent" />
+
         <DownloadBar
           selectedCount={selected.size}
           downloading={downloading}

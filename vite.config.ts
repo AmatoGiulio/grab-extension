@@ -7,6 +7,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    cssMinify: true,
+    modulePreload: false,
     rollupOptions: {
       input: {
         sidepanel: 'sidepanel.html',
@@ -15,7 +17,7 @@ export default defineConfig({
       output: {
         entryFileNames: (chunk) => chunk.name === 'background' ? 'background.js' : 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash][extname]'
+        assetFileNames: 'assets/[name]-[hash][extname]',
       }
     }
   }
