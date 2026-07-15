@@ -6,3 +6,4 @@ vite.config.d.ts
 vite.config.js
 src/Archivio.zip
 Grab-v1.2.0.zip
+grab-*.zip

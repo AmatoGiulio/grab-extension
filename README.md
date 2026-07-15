@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/icons/icon-light-128.png" alt="Grab" width="80">
+  <img src="public/icons/icon-dark-128.png" alt="Grab" width="80">
   <h1>Grab</h1>
   <p>Chrome extension (Manifest V3) that collects every image on the current page into a side panel — filter, preview, and download them individually or as a structured ZIP.</p>
   <img src="docs/grid.png" alt="Grab side panel showing the image grid next to a stock photography site" width="100%">
@@ -65,6 +65,10 @@ src/
 | `<all_urls>` | fetch image bytes cross-origin from the panel (reachability checks, ZIP building) |
 
 Grab makes no requests other than fetching the images you see; nothing is collected or sent anywhere.
+
+## Privacy
+
+No data is collected, stored, or transmitted — see the [privacy policy](PRIVACY.md).
 
 ## License
 
