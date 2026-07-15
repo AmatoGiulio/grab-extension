@@ -7,3 +7,4 @@ vite.config.js
 src/Archivio.zip
 Grab-v1.2.0.zip
 grab-*.zip
+docs/store/src/render-*.png

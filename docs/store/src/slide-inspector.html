@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face { font-family:'Geist'; font-weight:400; src:url('../../../node_modules/@fontsource/geist/files/geist-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family:'Geist'; font-weight:500; src:url('../../../node_modules/@fontsource/geist/files/geist-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family:'Geist'; font-weight:600; src:url('../../../node_modules/@fontsource/geist/files/geist-latin-600-normal.woff2') format('woff2'); }
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { width:1280px; height:800px; overflow:hidden; }
+body {
+  font-family:'Geist',sans-serif;
+  background:
+    radial-gradient(900px 600px at 78% 30%, rgba(26,115,232,0.10), transparent 60%),
+    radial-gradient(700px 500px at 15% 85%, rgba(26,115,232,0.05), transparent 60%),
+    linear-gradient(160deg, #0d0d10 0%, #121216 55%, #0b0b0e 100%);
+  display:flex; align-items:center; padding:0 72px; gap:64px; position:relative;
+}
+body::before {
+  content:''; position:absolute; inset:0;
+  background-image:radial-gradient(rgba(255,255,255,0.028) 1px, transparent 1px);
+  background-size:26px 26px;
+}
+.text { position:relative; width:460px; flex:none; }
+.brand { display:flex; align-items:center; gap:12px; margin-bottom:40px; }
+.brand img { width:34px; height:34px; filter:brightness(0) invert(1); }
+.brand span { font-size:24px; font-weight:600; color:#f2f2f5; letter-spacing:-0.01em; }
+h1 { font-size:52px; font-weight:600; color:#f5f5f7; line-height:1.08; letter-spacing:-0.025em; margin-bottom:22px; }
+h1 em { font-style:normal; color:#6aa5f8; }
+p { font-size:20px; font-weight:400; color:#9b9ba4; line-height:1.5; margin-bottom:34px; }
+.chips { display:flex; flex-wrap:wrap; gap:10px; }
+.chip { font-size:14px; font-weight:500; color:#c9c9d2; border:1px solid rgba(255,255,255,0.13);
+  background:rgba(255,255,255,0.04); border-radius:999px; padding:8px 16px; }
+.shot { position:relative; flex:1; display:flex; justify-content:flex-end; }
+.shot img {
+  height:620px; border-radius:16px;
+  border:1px solid rgba(255,255,255,0.10);
+  box-shadow:0 40px 90px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.4), 0 0 120px rgba(26,115,232,0.07);
+}
+</style></head><body>
+<div class="text">
+  <div class="brand"><img src="../../../public/icons/icon-light-128.png"><span>Grab</span></div>
+  <h1>Pick images <em>straight from the page</em></h1>
+  <p>Turn on the inspector, hover any image to highlight it, click to select it in the panel.</p>
+  <div class="chips"><span class="chip">Works under overlays</span><span class="chip">SVG &amp; canvas too</span><span class="chip">Esc to exit</span></div>
+</div>
+<div class="shot"><img src="page-inspector.png"></div>
+</body></html>
