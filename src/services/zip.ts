@@ -50,8 +50,9 @@ export async function createZip(
 ): Promise<ZipResult> {
   const zip = new JSZip();
   const folderCounts: Record<string, number> = {};
+  let completed = 0;
 
-  const metadata = await mapWithConcurrency(images, 6, async (image, index) => {
+  const metadata = await mapWithConcurrency(images, 6, async (image) => {
     const category = categorize(image);
     folderCounts[category] = (folderCounts[category] ?? 0) + 1;
     const count = folderCounts[category];
@@ -60,7 +61,7 @@ export async function createZip(
     try {
       const blob = await fetchBlob(image);
       zip.file(archiveFilename, blob, { binary: true, compression: 'STORE' });
-      onProgress?.(index + 1, images.length);
+      onProgress?.(++completed, images.length);
       return {
         ...image,
         archiveFilename,
@@ -69,7 +70,7 @@ export async function createZip(
         status: 'downloaded' as const,
       };
     } catch (error) {
-      onProgress?.(index + 1, images.length);
+      onProgress?.(++completed, images.length);
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[ZIP] Failed to fetch ${image.url}: ${message}`);
       return {

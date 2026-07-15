@@ -6,8 +6,8 @@ export function useChromeEvents(
 ) {
   useEffect(() => {
     const onActivated = () => scan({ silent: false });
-    const onUpdated = (_tabId: number, change: { status?: string }) => {
-      if (change.status === 'complete') scan({ silent: false });
+    const onUpdated = (_tabId: number, change: { status?: string }, tab: chrome.tabs.Tab) => {
+      if (change.status === 'complete' && tab.active) scan({ silent: false });
     };
     const onMessage = (message: unknown, _sender: chrome.runtime.MessageSender) => {
       const typed = message as { type?: string };

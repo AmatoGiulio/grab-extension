@@ -10,7 +10,6 @@
     "sidePanel",
     "downloads",
     "tabs",
-    "activeTab",
     "storage"
   ],
   "host_permissions": [

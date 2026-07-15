@@ -25,16 +25,6 @@ export function collectImagesInPage(options?: {
     walk(root);
   };
 
-  const walkShadowRoots = (root: Document | ShadowRoot | Element, cb: (el: Element) => void): void => {
-    if (root instanceof Element) {
-      cb(root);
-      if (root.shadowRoot) walkShadowRoots(root.shadowRoot, cb);
-    }
-    for (const child of (root as Document | Element).children) {
-      if (child instanceof Element) walkShadowRoots(child, cb);
-    }
-  };
-
   type Raw = Omit<CollectedImage, 'id'>;
   const found = new Map<string, Raw>();
 
@@ -221,8 +211,14 @@ export function collectImagesInPage(options?: {
     });
   };
 
+  const cssSeen = new Set<string>();
+  let svgIndex = 0;
+
+  // ponytail: single DOM walk — previously 5 full traversals per scan, and scans fire on every page mutation
   queryAllWithShadow(document, (el) => {
-    if (el.tagName === 'IMG') {
+    const tag = el.tagName.toUpperCase();
+
+    if (tag === 'IMG') {
       const image = el as HTMLImageElement;
       if (image.naturalWidth === 0 && image.naturalHeight === 0) return;
       const rect = image.getBoundingClientRect();
@@ -241,21 +237,72 @@ export function collectImagesInPage(options?: {
       add(src, 'img', image, dims);
       image.srcset.split(',').forEach((candidate) => add(candidate.trim().split(/\s+/)[0], 'srcset', image, dims));
       ['data-src', 'data-original', 'data-lazy-src', 'data-url', 'data-image'].forEach((attribute) => add(image.getAttribute(attribute), 'img', image, dims));
+      return;
     }
-  });
 
-  queryAllWithShadow(document, (el) => {
-    if (el.tagName === 'SOURCE' && el.getAttribute('srcset')) {
+    if (tag === 'SOURCE') {
       el.getAttribute('srcset')?.split(',').forEach((candidate) => add(candidate.trim().split(/\s+/)[0], 'srcset', el));
+      return;
     }
-  });
 
-  if (includeCssBackgrounds) {
-    const cssSeen = new Set<string>();
-    walkShadowRoots(document, (el) => {
-      if (!(el instanceof HTMLElement)) return;
-      const style = getComputedStyle(el);
-      const background = style.backgroundImage;
+    if (tag === 'META' || tag === 'LINK') {
+      const prop = el.getAttribute('property') || '';
+      const name = el.getAttribute('name') || '';
+      const rel = el.getAttribute('rel') || '';
+      if (prop === 'og:image' || name === 'twitter:image' || rel === 'image_src') {
+        add(el.getAttribute('content') || el.getAttribute('href'), 'meta', el, {
+          description: prop || name || rel || '',
+        });
+      }
+      return;
+    }
+
+    if (tag === 'SVG') {
+      if (!includeSvg) return;
+      const svg = el as SVGElement;
+      try {
+        const rect = svg.getBoundingClientRect();
+        if (rect.width < MIN_DIMENSION && rect.height < MIN_DIMENSION) return;
+        const clone = svg.cloneNode(true) as SVGElement;
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        const serialized = new XMLSerializer().serializeToString(clone);
+        const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serialized)}`;
+        svgIndex++;
+        add(url, 'svg', svg, {
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          displayedWidth: Math.round(rect.width),
+          displayedHeight: Math.round(rect.height),
+          alt: svg.getAttribute('aria-label') || `SVG ${svgIndex}`,
+          title: svg.getAttribute('title') || '',
+          description: svg.getAttribute('aria-description') || svg.getAttribute('aria-label') || `SVG inline ${svgIndex}`,
+        });
+      } catch { /* ignored */ }
+      return;
+    }
+
+    if (tag === 'CANVAS') {
+      if (!includeCanvas) return;
+      const canvas = el as HTMLCanvasElement;
+      try {
+        const dataUrl = canvas.toDataURL('image/png');
+        if (!dataUrl || dataUrl === 'data:,') return;
+        const rect = canvas.getBoundingClientRect();
+        add(dataUrl, 'canvas', canvas, {
+          width: canvas.width || Math.round(rect.width),
+          height: canvas.height || Math.round(rect.height),
+          displayedWidth: Math.round(rect.width),
+          displayedHeight: Math.round(rect.height),
+          alt: canvas.getAttribute('aria-label') || canvas.getAttribute('alt') || '',
+          title: canvas.getAttribute('title') || '',
+          description: canvas.getAttribute('aria-description') || canvas.getAttribute('aria-label') || '',
+        });
+      } catch { /* tainted canvas — skip */ }
+      return;
+    }
+
+    if (includeCssBackgrounds && el instanceof HTMLElement) {
+      const background = getComputedStyle(el).backgroundImage;
       if (!background || background === 'none' || !background.includes('url(')) return;
       const rect = el.getBoundingClientRect();
       if (rect.width < MIN_DIMENSION && rect.height < MIN_DIMENSION) return;
@@ -271,8 +318,10 @@ export function collectImagesInPage(options?: {
           });
         }
       }
-    });
+    }
+  });
 
+  if (includeCssBackgrounds) {
     try {
       const stylesheetUrls = new Set<string>();
       for (const sheet of document.styleSheets) {
@@ -294,66 +343,6 @@ export function collectImagesInPage(options?: {
         add(raw, 'css', null);
       }
     } catch { /* stylesheet iteration not supported */ }
-  }
-
-  queryAllWithShadow(document, (el) => {
-    if (el.tagName === 'META' || el.tagName === 'LINK') {
-      const prop = el.getAttribute('property') || '';
-      const name = el.getAttribute('name') || '';
-      const rel = el.getAttribute('rel') || '';
-      if (prop === 'og:image' || name === 'twitter:image' || rel === 'image_src') {
-        add(el.getAttribute('content') || el.getAttribute('href'), 'meta', el, {
-          description: prop || name || rel || '',
-        });
-      }
-    }
-  });
-
-  if (includeSvg) {
-    let svgIndex = 0;
-    queryAllWithShadow(document, (el) => {
-      if (el.tagName !== 'SVG') return;
-      const svg = el as SVGElement;
-      try {
-        const rect = svg.getBoundingClientRect();
-        if (rect.width < MIN_DIMENSION && rect.height < MIN_DIMENSION) return;
-        const clone = svg.cloneNode(true) as SVGElement;
-        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-        const serialized = new XMLSerializer().serializeToString(clone);
-        const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serialized)}`;
-        svgIndex++;
-        add(url, 'svg', svg, {
-          width: Math.round(rect.width),
-          height: Math.round(rect.height),
-          displayedWidth: Math.round(rect.width),
-          displayedHeight: Math.round(rect.height),
-          alt: svg.getAttribute('aria-label') || `SVG ${svgIndex}`,
-          title: svg.getAttribute('title') || '',
-          description: svg.getAttribute('aria-description') || svg.getAttribute('aria-label') || `SVG inline ${svgIndex}`,
-        });
-      } catch { /* ignored */ }
-    });
-  }
-
-  if (includeCanvas) {
-    queryAllWithShadow(document, (el) => {
-      if (el.tagName !== 'CANVAS') return;
-      const canvas = el as HTMLCanvasElement;
-      try {
-        const dataUrl = canvas.toDataURL('image/png');
-        if (!dataUrl || dataUrl === 'data:,') return;
-        const rect = canvas.getBoundingClientRect();
-        add(dataUrl, 'canvas', canvas, {
-          width: canvas.width || Math.round(rect.width),
-          height: canvas.height || Math.round(rect.height),
-          displayedWidth: Math.round(rect.width),
-          displayedHeight: Math.round(rect.height),
-          alt: canvas.getAttribute('aria-label') || canvas.getAttribute('alt') || '',
-          title: canvas.getAttribute('title') || '',
-          description: canvas.getAttribute('aria-description') || canvas.getAttribute('aria-label') || '',
-        });
-      } catch { /* tainted canvas — skip */ }
-    });
   }
 
   return [...found.values()].map((item) => ({ ...item, id: item.url }));

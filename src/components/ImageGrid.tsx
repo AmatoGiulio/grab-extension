@@ -35,6 +35,7 @@ export function ImageGrid({
     <div className="columns-[180px] gap-4 [&>*]:break-inside-avoid">
         {filtered.map((image, index) => (
           <motion.div
+            layout="position"
             key={image.id}
             data-image-id={image.id}
             className="mb-4"
@@ -52,13 +53,7 @@ export function ImageGrid({
                 previewOpen={previewImageId === image.id}
                 onToggle={onToggle}
                 onDownload={onDownload}
-                onPreviewOpenChange={(open) => {
-                  if (open) {
-                    onPreviewOpenChange?.(image.id);
-                  } else if (previewImageId === image.id) {
-                    onPreviewOpenChange?.(null);
-                  }
-                }}
+                onPreviewOpenChange={onPreviewOpenChange}
               />
             </InView>
           </motion.div>

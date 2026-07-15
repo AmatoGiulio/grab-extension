@@ -5,8 +5,9 @@ import { mapWithConcurrency } from '../utils/concurrency';
 import type { CollectedImage, AdvancedOptions } from '../types';
 import { DEFAULT_ADVANCED_OPTIONS } from '../types';
 
-async function isReachable(url: string, pageUrl: string, signal?: AbortSignal): Promise<boolean> {
-  if (url.startsWith('data:') || url.startsWith('blob:')) return true;
+/** Returns the Content-Length (or null if unknown) when reachable, false otherwise. */
+async function headInfo(url: string, signal?: AbortSignal): Promise<number | null | false> {
+  if (url.startsWith('data:') || url.startsWith('blob:')) return null;
   if (signal?.aborted) return false;
 
   const timeout = new AbortController();
@@ -17,10 +18,11 @@ async function isReachable(url: string, pageUrl: string, signal?: AbortSignal): 
     const response = await fetch(url, {
       method: 'HEAD',
       cache: 'no-store',
-      headers: pageUrl ? { Referer: pageUrl } : {},
       signal: combined,
     });
-    return response.ok;
+    if (!response.ok) return false;
+    const length = Number(response.headers.get('content-length'));
+    return length > 0 ? length : null;
   } catch {
     return false;
   } finally {
@@ -77,6 +79,9 @@ export function useImageCollection() {
   const scanVersion = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const activeTabId = useRef<number | null>(null);
+  const reachableCache = useRef(new Map<string, number | null>());
+  const lastImagesKey = useRef<string | null>(null);
+  const lastPageUrl = useRef('');
 
   const installWatcher = useCallback(async (tabId: number) => {
     try {
@@ -121,6 +126,11 @@ export function useImageCollection() {
 
         const parsed = new URL(tab.url);
         const currentPageUrl = tab.url;
+        if (currentPageUrl !== lastPageUrl.current) {
+          lastPageUrl.current = currentPageUrl;
+          reachableCache.current.clear();
+          lastImagesKey.current = null;
+        }
         setDomain(parsed.hostname.replace(/^www\./, ''));
         setPageUrl(currentPageUrl);
         setPageTitle(tab.title || parsed.hostname);
@@ -145,8 +155,11 @@ export function useImageCollection() {
 
         if (!candidates.length) {
           if (version !== scanVersion.current) return;
-          setImages([]);
-          options.onImagesUpdate?.(new Set());
+          if (lastImagesKey.current !== '') {
+            lastImagesKey.current = '';
+            setImages([]);
+            options.onImagesUpdate?.(new Set());
+          }
           setStatus('No images found');
           return;
         }
@@ -155,19 +168,27 @@ export function useImageCollection() {
           setStatus(`Checking ${candidates.length} images…`);
         }
 
-        const reachable: CollectedImage[] = [];
-        await mapWithConcurrency(candidates, 15, async (image) => {
-          if (abort.signal.aborted) return;
-          if (await isReachable(image.url, currentPageUrl, abort.signal)) {
-            reachable.push(image);
-          }
+        const sizes = await mapWithConcurrency(candidates, 15, async (image): Promise<number | null | false> => {
+          if (abort.signal.aborted) return false;
+          const cached = reachableCache.current.get(image.url);
+          if (cached !== undefined) return cached;
+          const size = await headInfo(image.url, abort.signal);
+          if (size !== false) reachableCache.current.set(image.url, size);
+          return size;
         }, abort.signal);
+        // preserve document order — completion order shuffled the grid on every rescan
+        const reachable = candidates.flatMap((image, i) =>
+          sizes[i] === false ? [] : [{ ...image, byteSize: sizes[i] as number | null }],
+        );
 
         if (version !== scanVersion.current) return;
 
-        const validIds = new Set(reachable.map((i) => i.id));
-        setImages(reachable);
-        options.onImagesUpdate?.(validIds);
+        const imagesKey = reachable.map((i) => `${i.id}:${i.pixelCount}`).join('\n');
+        if (imagesKey !== lastImagesKey.current) {
+          lastImagesKey.current = imagesKey;
+          setImages(reachable);
+          options.onImagesUpdate?.(new Set(reachable.map((i) => i.id)));
+        }
 
         if (reachable.length > 0) {
           setStatus(`${reachable.length} images`);
@@ -178,6 +199,7 @@ export function useImageCollection() {
         await installWatcher(tab.id);
       } catch (error) {
         if (version !== scanVersion.current) return;
+        lastImagesKey.current = '';
         setImages([]);
         options.onImagesUpdate?.(new Set());
         setStatus(

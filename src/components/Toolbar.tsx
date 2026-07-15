@@ -68,6 +68,7 @@ export function Toolbar({
             <SelectItem index={1} value="largest">Largest</SelectItem>
             <SelectItem index={2} value="smallest">Smallest</SelectItem>
             <SelectItem index={3} value="name">Name</SelectItem>
+            <SelectItem index={4} value="heaviest">Heaviest</SelectItem>
           </SelectContent>
         </Select>
       </div>

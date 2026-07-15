@@ -29,6 +29,7 @@ export interface CollectedImage {
   pathname: string;
   aspectRatio: number | null;
   pixelCount: number;
+  byteSize?: number | null;
 }
 
 export interface DownloadedImageMetadata extends CollectedImage {
@@ -56,7 +57,7 @@ export interface MetadataFile {
   images: DownloadedImageMetadata[];
 }
 
-export type SortMode = 'document' | 'largest' | 'smallest' | 'name';
+export type SortMode = 'document' | 'largest' | 'smallest' | 'name' | 'heaviest';
 export type ThemeMode = 'light' | 'dark';
 
 export interface AdvancedOptions {

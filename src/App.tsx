@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ShapeProvider } from '@/lib/shape-context';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Header } from './components/Header';
@@ -16,6 +16,7 @@ import { useChromeEvents } from './hooks/useChromeEvents';
 import { useChromeThemeSync } from './hooks/useChromeThemeSync';
 import { useBadge } from './hooks/useBadge';
 import { useInspector } from './hooks/useInspector';
+import { useStoredState } from './hooks/useStoredState';
 import type { AdvancedOptions } from './types';
 import { DEFAULT_ADVANCED_OPTIONS } from './types';
 
@@ -24,8 +25,11 @@ function App() {
   const { images, loading, status, setStatus, domain, pageUrl, pageTitle, scan } =
     useImageCollection();
   useBadge(images);
-  const { fetchBlob } = useBlobCache(pageUrl);
-  const [advancedOptions, setAdvancedOptions] = useState<AdvancedOptions>(DEFAULT_ADVANCED_OPTIONS);
+  const { fetchBlob, clearCache } = useBlobCache();
+  useEffect(() => { clearCache(); }, [pageUrl, clearCache]);
+  const [storedOptions, setAdvancedOptions] = useStoredState<AdvancedOptions>('advancedOptions', DEFAULT_ADVANCED_OPTIONS);
+  // merge with defaults so options added in future versions get their default
+  const advancedOptions = useMemo(() => ({ ...DEFAULT_ADVANCED_OPTIONS, ...storedOptions }), [storedOptions]);
   const { format, setFormat, sort, setSort, minWidth, setMinWidth, filtered } =
     useImageFilters(images);
   const { selected, allVisibleSelected, selectedImages, toggle, toggleAll, resetSelection, pruneSelection } =
@@ -124,7 +128,7 @@ function App() {
               previewImageId={inspectedImageId}
               onToggle={toggle}
               onDownload={downloadSingle}
-              onPreviewOpenChange={(id) => setInspectedImageId(id)}
+              onPreviewOpenChange={setInspectedImageId}
             />
           </ScrollArea>
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-16 bg-gradient-to-t from-background to-transparent" />

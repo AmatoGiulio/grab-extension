@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Download } from 'lucide-react';
 import { Check } from 'lucide-react';
 import { Button } from './ui/button';
@@ -14,6 +15,7 @@ import {
   MorphingDialogClose,
 } from '@/components/motion-primitives/morphing-dialog';
 import type { CollectedImage } from '../types';
+import { formatBytes } from '../utils/format';
 
 interface ImageCardProps {
   image: CollectedImage;
@@ -23,7 +25,7 @@ interface ImageCardProps {
   previewOpen: boolean;
   onToggle: (id: string) => void;
   onDownload: (image: CollectedImage) => void;
-  onPreviewOpenChange?: (open: boolean) => void;
+  onPreviewOpenChange?: (imageId: string | null) => void;
 }
 
 function handleDragStart(e: React.DragEvent, image: CollectedImage) {
@@ -36,7 +38,7 @@ function handleDragStart(e: React.DragEvent, image: CollectedImage) {
   );
 }
 
-export function ImageCard({
+export const ImageCard = memo(function ImageCard({
   image,
   isSelected,
   disabled,
@@ -48,8 +50,16 @@ export function ImageCard({
 }: ImageCardProps) {
   const isDownloading = downloadingId === image.id;
 
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      onPreviewOpenChange?.(image.id);
+    } else if (previewOpen) {
+      onPreviewOpenChange?.(null);
+    }
+  };
+
   return (
-    <MorphingDialog open={previewOpen} onOpenChange={onPreviewOpenChange}>
+    <MorphingDialog open={previewOpen} onOpenChange={handleOpenChange}>
       <article
         draggable={!disabled}
         onDragStart={(e) => handleDragStart(e, image)}
@@ -128,7 +138,8 @@ export function ImageCard({
             {image.filename}
           </strong>
           <span className="truncate font-mono text-[9px] lowercase text-muted-foreground">
-            {image.width || image.displayedWidth || '?'} × {image.height || image.displayedHeight || '?'} · {image.source}
+            {image.width || image.displayedWidth || '?'} × {image.height || image.displayedHeight || '?'}
+            {image.byteSize != null && ` · ${formatBytes(image.byteSize)}`} · {image.source}
           </span>
         </div>
       </article>
@@ -162,4 +173,4 @@ export function ImageCard({
       </MorphingDialogContainer>
     </MorphingDialog>
   );
-}
+});
