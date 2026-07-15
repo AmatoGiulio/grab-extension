@@ -58,3 +58,7 @@ src/
 | `<all_urls>` | fetch image bytes cross-origin from the panel (reachability checks, ZIP building) |
 
 Grab makes no requests other than fetching the images you see; nothing is collected or sent anywhere.
+
+## License
+
+[MIT](LICENSE)
