@@ -1,6 +1,11 @@
-# Grab
-
-Chrome extension (Manifest V3) that collects every image on the current page into a side panel — filter, preview, and download them individually or as a structured ZIP.
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/icons/icon-light-128.png">
+    <img src="public/icons/icon-dark-128.png" alt="Grab" width="80">
+  </picture>
+  <h1>Grab</h1>
+  <p>Chrome extension (Manifest V3) that collects every image on the current page into a side panel — filter, preview, and download them individually or as a structured ZIP.</p>
+</div>
 
 ## Features
 
