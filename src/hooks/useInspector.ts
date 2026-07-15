@@ -40,6 +40,11 @@ export function useInspector(images: { id: string; url: string }[]) {
   useEffect(() => {
     const onMessage = (message: unknown) => {
       const msg = message as { type: string; url: string; width?: number; height?: number; alt?: string } | undefined;
+      if (msg?.type === 'grab:inspector-dismissed') {
+        setActive(false);
+        activeRef.current = false;
+        return;
+      }
       if (!msg || msg.type !== 'grab:inspect-image' || !msg.url) return;
 
       const match = images.find(

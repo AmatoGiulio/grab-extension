@@ -4,6 +4,7 @@ type InspectorState = {
   onMouseMove: (e: MouseEvent) => void;
   onClick: (e: MouseEvent) => void;
   onKeyDown: (e: KeyboardEvent) => void;
+  onVisibility: () => void;
 };
 
 export function installInspector(): boolean {
@@ -40,12 +41,21 @@ export function installInspector(): boolean {
     return false;
   }
 
-  const onMouseMove = (e: MouseEvent) => {
-    let el = document.elementFromPoint(e.clientX, e.clientY);
-    if (el?.id === '__grab-inspector-overlay' || el?.id === '__grab-inspector-label') {
-      el = document.elementFromPoint(e.clientX, e.clientY);
+  // scan the whole stack under the cursor: on most sites images sit below
+  // hover overlays/links, so the topmost element is never the image itself
+  const pickImageAt = (x: number, y: number): Element | null => {
+    for (const candidate of document.elementsFromPoint(x, y)) {
+      if (candidate.id === '__grab-inspector-overlay' || candidate.id === '__grab-inspector-label') continue;
+      if (candidate === document.body || candidate === document.documentElement) break;
+      if (candidate instanceof SVGElement) return candidate.ownerSVGElement ?? candidate;
+      if (isImageElement(candidate)) return candidate;
     }
-    if (el && el !== document.body && el !== document.documentElement && isImageElement(el)) {
+    return null;
+  };
+
+  const onMouseMove = (e: MouseEvent) => {
+    const el = pickImageAt(e.clientX, e.clientY);
+    if (el) {
       if (el === currentEl) return;
       currentEl = el;
       const rect = el.getBoundingClientRect();
@@ -64,6 +74,26 @@ export function installInspector(): boolean {
       overlay.style.display = 'none';
       highlight.style.display = 'none';
     }
+  };
+
+  const cleanup = () => {
+    overlay.remove();
+    highlight.remove();
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('click', onClick, true);
+    document.removeEventListener('keydown', onKeyDown);
+    document.removeEventListener('visibilitychange', onVisibility);
+    delete win.__grabInspector;
+  };
+
+  // page-side dismissals (Esc, tab switch) must reset the panel's toggle state too
+  const dismiss = () => {
+    cleanup();
+    void chrome.runtime.sendMessage({ type: 'grab:inspector-dismissed' }).catch(() => undefined);
+  };
+
+  const onVisibility = () => {
+    if (document.hidden) dismiss();
   };
 
   const onClick = (e: MouseEvent) => {
@@ -123,30 +153,19 @@ export function installInspector(): boolean {
       });
     }
 
-    overlay.remove();
-    highlight.remove();
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('click', onClick, true);
-    document.removeEventListener('keydown', onKeyDown);
-    delete win.__grabInspector;
+    cleanup();
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      overlay.remove();
-      highlight.remove();
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('click', onClick, true);
-      document.removeEventListener('keydown', onKeyDown);
-      delete win.__grabInspector;
-    }
+    if (e.key === 'Escape') dismiss();
   };
 
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('click', onClick, true);
   document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('visibilitychange', onVisibility);
 
-  win.__grabInspector = { overlay, highlight, onMouseMove, onClick, onKeyDown };
+  win.__grabInspector = { overlay, highlight, onMouseMove, onClick, onKeyDown, onVisibility };
   return true;
 }
 
@@ -159,6 +178,7 @@ export function uninstallInspector(): boolean {
   document.removeEventListener('mousemove', state.onMouseMove);
   document.removeEventListener('click', state.onClick, true);
   document.removeEventListener('keydown', state.onKeyDown);
+  document.removeEventListener('visibilitychange', state.onVisibility);
   delete win.__grabInspector;
   return true;
 }
