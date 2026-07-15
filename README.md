@@ -1,8 +1,5 @@
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="public/icons/icon-light-128.png">
-    <img src="public/icons/icon-dark-128.png" alt="Grab" width="80">
-  </picture>
+  <img src="public/icons/icon-light-128.png" alt="Grab" width="80">
   <h1>Grab</h1>
   <p>Chrome extension (Manifest V3) that collects every image on the current page into a side panel — filter, preview, and download them individually or as a structured ZIP.</p>
   <img src="docs/grid.png" alt="Grab side panel showing the image grid next to a stock photography site" width="100%">
