@@ -349,13 +349,13 @@ export function collectImagesInPage(options?: {
 }
 
 export function installRealtimeImageWatcher(): boolean {
-  const target = window as typeof window & { __imageCollectorWatcherInstalled?: boolean; __imageCollectorTimer?: number };
-  if (target.__imageCollectorWatcherInstalled) return false;
-  target.__imageCollectorWatcherInstalled = true;
+  const target = window as typeof window & { __grabWatcherInstalled?: boolean; __grabWatcherTimer?: number };
+  if (target.__grabWatcherInstalled) return false;
+  target.__grabWatcherInstalled = true;
 
   const notify = () => {
-    window.clearTimeout(target.__imageCollectorTimer);
-    target.__imageCollectorTimer = window.setTimeout(() => {
+    window.clearTimeout(target.__grabWatcherTimer);
+    target.__grabWatcherTimer = window.setTimeout(() => {
       void chrome.runtime.sendMessage({ type: 'grab:page-change', url: location.href }).catch(() => undefined);
     }, 280);
   };
