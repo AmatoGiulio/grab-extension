@@ -21,7 +21,7 @@ export function useDownload(
       if (downloading) return;
       setDownloading(true);
       setDownloadingId(image.id);
-      setStatus(`Download di ${image.filename}…`);
+      setStatus(`Downloading ${image.filename}…`);
       try {
         if (/^https?:/.test(image.url)) {
           await downloadUrl(image.url, image.filename, false);
@@ -29,19 +29,19 @@ export function useDownload(
           const blob = await fetchBlob(image);
           await triggerBlobDownload(blob, image.filename, false);
         }
-        setStatus(`${image.filename} scaricata`);
+        setStatus(`${image.filename} downloaded`);
       } catch (directError) {
         try {
           const blob = await fetchBlob(image);
           await triggerBlobDownload(blob, image.filename, false);
-          setStatus(`${image.filename} scaricata`);
+          setStatus(`${image.filename} downloaded`);
         } catch (fallbackError) {
           const error =
             fallbackError instanceof Error ? fallbackError : directError;
           setStatus(
             error instanceof Error
-              ? `Download non riuscito: ${error.message}`
-              : 'Download non riuscito',
+              ? `Download failed: ${error.message}`
+              : 'Download failed',
           );
         }
       } finally {
@@ -56,31 +56,31 @@ export function useDownload(
   const downloadZip = useCallback(async () => {
     if (!selectedImages.length || downloading) return;
     setDownloading(true);
-    setStatus(`Preparazione di ${selectedImages.length} immagini…`);
+    setStatus(`Preparing ${selectedImages.length} images…`);
     try {
       const { blob, summary } = await createZip(
         selectedImages,
         fetchBlob,
         { url: pageUrl, title: pageTitle, domain },
         (completed, total) => {
-          setStatus(`Recuperate ${completed} di ${total} immagini…`);
+          setStatus(`Fetched ${completed} of ${total} images…`);
         },
       );
       const filename = `images-${domain || 'page'}.zip`;
       await triggerBlobDownload(blob, filename, true, (received, total) => {
         const pct = Math.round((received / total) * 100);
-        setStatus(`Download in corso: ${pct}%`);
+        setStatus(`Downloading: ${pct}%`);
       });
       setStatus(
         summary.failed
-          ? `ZIP creato · ${summary.failed} non accessibili`
-          : 'ZIP creato',
+          ? `ZIP created · ${summary.failed} unreachable`
+          : 'ZIP created',
       );
     } catch (error) {
       setStatus(
         error instanceof Error
-          ? `Errore ZIP: ${error.message}`
-          : 'Errore durante la creazione dello ZIP',
+          ? `ZIP error: ${error.message}`
+          : 'Failed to create the ZIP',
       );
     } finally {
       setDownloading(false);

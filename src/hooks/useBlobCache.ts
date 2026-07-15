@@ -10,7 +10,7 @@ async function fetchBlobDirect(url: string): Promise<Blob> {
 
 async function fetchBlobFromTab(url: string): Promise<Blob> {
   const tab = await getActiveTab();
-  if (!tab.id) throw new Error('Scheda non disponibile');
+  if (!tab.id) throw new Error('Tab not available');
 
   const result = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
@@ -30,7 +30,7 @@ async function fetchBlobFromTab(url: string): Promise<Blob> {
   });
 
   const dataUrl = result[0]?.result as string | undefined;
-  if (!dataUrl) throw new Error('Blob non accessibile');
+  if (!dataUrl) throw new Error('Blob not accessible');
   return (await fetch(dataUrl)).blob();
 }
 

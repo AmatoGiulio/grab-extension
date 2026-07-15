@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Grab",
   "version": "1.3.0",
-  "description": "Trova immagini in tempo reale, filtra, scarica singoli file o crea ZIP con metadata JSON.",
+  "description": "Collect, filter and download every image on the page — one by one or as an organized ZIP with metadata.",
   "minimum_chrome_version": "114",
   "permissions": [
     "activeTab",
@@ -20,7 +20,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Apri Grab",
+    "default_title": "Open Grab",
     "default_icon": {
       "16": "icons/icon-dark-16.png",
       "32": "icons/icon-dark-32.png",
