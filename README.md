@@ -2,10 +2,13 @@
   <img src="public/icons/icon-dark-128.png" alt="Grab" width="80">
   <h1>Grab</h1>
   <p>Chrome extension (Manifest V3) that collects every image on the current page into a side panel — filter, preview, and download them individually or as a structured ZIP.</p>
-  <img src="docs/grid.png" alt="Grab side panel showing the image grid next to a stock photography site" width="100%">
+  <img src="docs/store/grid-1280x800.png" alt="Grab side panel showing the image grid" width="100%">
   <p>
-    <img src="docs/inspector.png" alt="Inspector mode highlighting an image on the page" width="49.5%">
-    <img src="docs/detail.png" alt="Image preview dialog with metadata and download button" width="49.5%">
+    <img src="docs/store/inspector-1280x800.png" alt="Inspector mode highlighting an image on the page" width="49.5%">
+    <img src="docs/store/detail-1280x800.png" alt="Image preview with metadata and download button" width="49.5%">
+  </p>
+  <p>
+    <img src="docs/store/anywhere-1280x800.png" alt="Grab panel on Pinterest — built for real pages" width="49.5%">
   </p>
 </div>
 
